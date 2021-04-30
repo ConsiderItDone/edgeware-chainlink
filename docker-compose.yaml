@@ -1,0 +1,17 @@
+version: '3.2'
+
+services:
+  db:
+    restart: unless-stopped
+    image: postgres:13.2-alpine
+    environment:
+      POSTGRES_USER: "chainlink"
+      POSTGRES_DB: "chainlink"
+      POSTGRES_PASSWORD: "to584b1b2jflqorv"
+    volumes:
+      - chainlink_db:/var/lib/postgresql/data
+    ports:
+      - "0.0.0.0:5439:5432"
+
+volumes:
+  chainlink_db:
