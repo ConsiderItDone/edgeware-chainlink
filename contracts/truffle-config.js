@@ -4,9 +4,9 @@ module.exports = {
   networks: {
     development: {
       provider() {
-        const host = process.env.NODE_HOST || '127.0.0.1';
-        const port = process.env.NODE_PORT || 9933;
-        const pkey = process.env.NODE_PKEY || '0x1111111111111111111111111111111111111111111111111111111111111111';
+        const host = process.env.GETH_HOST || '127.0.0.1';
+        const port = process.env.GETH_PORT || 9933;
+        const pkey = process.env.GETH_PKEY || '0x1111111111111111111111111111111111111111111111111111111111111111';
         return new PrivateKeyProvider(pkey, `http://${host}:${port}`);
       },
       network_id: "*",
