@@ -22,7 +22,6 @@ app.get("/", function (req, res) {
 
 app.get("/deploy/oracle", async function (req, res) {
   const node = req.query.node;
-  const allowed = (req.query.allowed + '').toLowerCase() === 'true';
   if (!web3.utils.isAddress(node)) {
     res.status(500).send('Bad address format');
     return;
@@ -42,13 +41,13 @@ app.get("/deploy/oracle", async function (req, res) {
   const { contractAddress } = await web3.eth.sendSignedTransaction(tx1.rawTransaction);
   console.log(`  address: ${contractAddress}`);
 
-  console.log(`oracle.setFulfillmentPermission(${node}, ${allowed})`);
+  console.log(`oracle.setFulfillmentPermission(${node}, ${true})`);
   const tx2 = await from.signTransaction({
     from: from.address,
     to: contractAddress,
     nonce: nonce + 1,
     gas: 8000000,
-    data: (new web3.eth.Contract(oracle.abi, contractAddress)).methods.setFulfillmentPermission(node, allowed).encodeABI(),
+    data: (new web3.eth.Contract(oracle.abi, contractAddress)).methods.setFulfillmentPermission(node, true).encodeABI(),
   });
   const receipt = await web3.eth.sendSignedTransaction(tx2.rawTransaction);
   console.log(`  hash: ${receipt.transactionHash}`);
