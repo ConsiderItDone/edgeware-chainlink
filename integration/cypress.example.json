@@ -2,7 +2,8 @@
   "chromeWebSecurity": false,
   "video": false,
   "env": {
-    "CHAINLINK_URL": "http://127.0.0.1:6688",
+    "HOST": "http://127.0.0.1:8080",
+    "CHAINLINK_URL": "http://52.91.75.170:6688",
     "CHAINLINK_EMAIL": "admin@mail.com",
     "CHAINLINK_PASSWORD": "password",
     "ORACLE_CONTRACT_ADDRESS": "0x123"
