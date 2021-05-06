@@ -1,0 +1,28 @@
+{
+  "name": "Get > Uint256",
+  "initiators": [
+    {
+      "type": "runlog",
+      "params": {
+        "address": "ORACLE_CONTRACT_ADDRESS"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "httpget"
+    },
+    {
+      "type": "jsonparse"
+    },
+    {
+      "type": "multiply"
+    },
+    {
+      "type": "ethuint256"
+    },
+    {
+      "type": "ethtx"
+    }
+  ]
+}
