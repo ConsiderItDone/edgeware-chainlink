@@ -1,0 +1,19 @@
+{
+  "name": "edgeware-chainlink-contracts",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "npx truffle deploy",
+    "server": "node index.js",
+    "start": "npm run deploy && npm run server"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "truffle": "^5.3.4",
+    "truffle-privatekey-provider": "^1.5.0",
+    "web3": "^1.3.5"
+  }
+}
