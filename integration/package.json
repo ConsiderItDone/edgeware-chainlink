@@ -4,9 +4,7 @@
   "version": "0.0.1",
   "license": "MIT",
   "scripts": {
-    "test": "npm test:cypress",
-    "test:cypress": "npx cypress run --browser=chrome",
-    "dev": "npx ts-node run.ts"
+    "test": "npx ts-node run.ts"
   },
   "devDependencies": {
     "@cypress/webpack-preprocessor": "^4.1.5",

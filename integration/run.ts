@@ -3,15 +3,12 @@ import to from 'await-to-js';
 const fs = require('fs');
 
 (async () : Promise<any> => {
-    const rawData = fs.readFileSync('./cypress.json');
-    const config = JSON.parse(rawData)?.env;
-
-    const HOST = process.env.HOST || config.HOST;
-    const CHAINLINK_HOST = process.env.CHAINLINK_URL || config.CHAINLINK_URL;
+    const HOST = process.env.HOST;
+    const CHAINLINK_HOST = process.env.CHAINLINK_URL;
 
     const login = await axios.post(`${CHAINLINK_HOST}/sessions`, {
-        email: process.env.CHAINLINK_EMAIL || config.CHAINLINK_EMAIL,
-        password: process.env.CHAINLINK_PASSWORD || config.CHAINLINK_PASSWORD,
+        email: process.env.CHAINLINK_EMAIL,
+        password: process.env.CHAINLINK_PASSWORD,
     }, {
         headers:  {
             "accept": "application/json",
@@ -71,7 +68,7 @@ const fs = require('fs');
     const jobId = '0x' + Buffer.from(rawJobId, 'utf8').toString('hex');
     console.log('Job id:', rawJobId, ' -> ', jobId);
 
-    const [errClient, responseClient] = await to(axios.get(`${HOST}/deploy/client?oracle=${oracle}&token=${token}&jobid=${jobId}`));
+    const [errClient, responseClient] = await to(axios.get(`${HOST}/deploy/client?oracle=${oracle}&token=${token}&jobid=${jobId}&urlpart=http://192.168.1.9:3000/price&path=value&times=100`));
     if (errClient) {
         throw new Error(errClient?.message);
     }
