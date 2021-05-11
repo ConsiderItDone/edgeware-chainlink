@@ -10,7 +10,10 @@
   ],
   "tasks": [
     {
-      "type": "httpget"
+      "type": "httpget",
+      "params": {
+        "get": "PRICE_PROVIDER_URL"
+      }
     },
     {
       "type": "jsonparse"
