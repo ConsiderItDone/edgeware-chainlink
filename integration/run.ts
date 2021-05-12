@@ -6,14 +6,16 @@ function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const TICKER = 'ETH';
+
 (async () : Promise<any> => {
     const HOST = process.env.HOST || 'http://127.0.0.1:8080';
     const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
-    const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://a700c29b02db.ngrok.io/priceETH' || 'http://192.168.1.9:3000/price';
+    const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://192.168.1.9:3000/price';
 
     const login = await axios.post(`${CHAINLINK_HOST}/sessions`, {
-        email: process.env.CHAINLINK_EMAIL || 'test@test.com',
-        password: process.env.CHAINLINK_PASSWORD || 'gfhjkmGFHJKM123',
+        email: process.env.CHAINLINK_EMAIL,
+        password: process.env.CHAINLINK_PASSWORD,
     }, {
         headers:  {
             "accept": "application/json",
@@ -34,6 +36,11 @@ function sleep(ms: number) {
     }
     console.log('Node:', node);
 
+    const [errSendEthToNode] = await to(axios.get(`${HOST}/send/eth?address=${node}`));
+    if (errSendEthToNode) {
+        throw new Error('Can not top up node');
+    }
+
     const [errToken, responseToken] = await to(axios.get(`${HOST}`));
     if (errToken) {
         throw new Error('edgeware-chainlink-contract not allowed');
@@ -50,15 +57,10 @@ function sleep(ms: number) {
     const oracleAddress = (responseOracle as AxiosResponse).data;
     console.log('Oracle:', oracleAddress);
 
-    const [errTopUpClient] = await to(axios.get(`${HOST}/topup/client?token=${tokenAddress}&oracle=${oracleAddress}`));
-    if (errTopUpClient) {
-        throw new Error('can not top up client contract');
-    }
-
     const rawJobPayload = fs.readFileSync('./cypress/fixtures/job.json');
     const jobPayload = JSON.parse(rawJobPayload);
 
-    // patch oracle address
+    // patch oracle address and price provider
     jobPayload.initiators[0].params.address = oracleAddress;
     jobPayload.tasks[0].params.get = PRICE_PROVIDER_URL;
 
@@ -87,42 +89,22 @@ function sleep(ms: number) {
     const clientAddress = (responseClient as AxiosResponse).data;
     console.log('Client address:', clientAddress);
 
-    const [errTopUpNode] = await to(axios.get(`${HOST}/topup/node?token=${tokenAddress}&client=${clientAddress}`));
-    if (errTopUpNode) {
-        throw new Error('can not top up client contract');
+    const [errSendTokenToClient] = await to(axios.get(`${HOST}/send/token?address=${clientAddress}`));
+    if (errSendTokenToClient) {
+        throw new Error('Can not top up client contract');
     }
 
-    // if (true) { // test 1
-    //     await axios.post(`${PRICE_PROVIDER_URL}`, {
-    //         value: 10000,
-    //     });
-    //
-    //     const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=ETH`));
-    //     if (errPrice) {
-    //         throw errPrice;
-    //     }
-    //
-    //     const logs = (responsePrice as any).data.logs;
-    //     const requestId = logs[logs.length - 1].topics[3];
-    //
-    //     await sleep(10000); // TODO: use setInterval
-    //     const [err, price] = await to(axios.get(`${HOST}/result?client=${clientAddress}&requestId=${requestId}`));
-    //     if (err) {
-    //         throw err;
-    //     }
-    //
-    //     console.log('Expected price:', 10000);
-    //     console.log('Received price:', price?.data);
-    // }
-
-    if (true) { // test 2
+    if (true) { // test 1
 
         const newPrice = 42;
-        await axios.post(`${PRICE_PROVIDER_URL}`, {
+        const [err1] = await to(axios.post(`${PRICE_PROVIDER_URL}${TICKER}`, {
             value: newPrice,
-        });
+        }));
+        if (err1) {
+            console.log('Can not update price')
+        }
 
-        const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=ETH`));
+        const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=${TICKER}`));
         if (errPrice) {
             throw errPrice;
         }
