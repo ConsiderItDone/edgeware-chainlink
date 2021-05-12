@@ -2,17 +2,61 @@ import axios, {AxiosResponse} from 'axios';
 import to from 'await-to-js';
 const fs = require('fs');
 
-function sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+const TICKER = process.env.TICKER || 'ETH';
+const HOST = process.env.HOST || 'http://127.0.0.1:8080';
+const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
+const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://192.168.1.9:3000/priceETH';
+
+async function test(name: string, clientAddress: string, newPrice: number) {
+    const [err] = await to(axios.post(`${PRICE_PROVIDER_URL}`, { // TICKER
+        value: newPrice / 100,
+    }));
+    if (err) {
+        throw new Error('Can not update price');
+    }
+
+    const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=${TICKER}`));
+    if (errPrice) {
+        throw errPrice;
+    }
+
+    const logs = (responsePrice as any).data.logs;
+    const requestId = logs[logs.length - 1].topics[3];
+
+    let counter = 1;
+    const price = await new Promise((resolve, reject) => {
+        const intervalId = setInterval(async () => {
+            counter++;
+
+            if (counter > 5) {
+                reject(new Error('No results'));
+                return;
+            }
+
+            const [err, price] = await to(axios.get(`${HOST}/result?client=${clientAddress}&requestId=${requestId}`));
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            if (Number(price?.data)) {
+                clearInterval(intervalId);
+                resolve(price?.data);
+            }
+        }, 2000);
+    });
+
+    console.log('Expected price:', newPrice);
+    console.log('Received price:', price);
+
+    if (Number(newPrice) !== Number(price)) {
+        console.error(`Test ${name} failed`);
+    } else {
+        console.log(`Test ${name} pass`);
+    }
 }
 
-const TICKER = 'ETH';
-
 (async () : Promise<any> => {
-    const HOST = process.env.HOST || 'http://127.0.0.1:8080';
-    const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
-    const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://192.168.1.9:3000/price';
-
     const login = await axios.post(`${CHAINLINK_HOST}/sessions`, {
         email: process.env.CHAINLINK_EMAIL,
         password: process.env.CHAINLINK_PASSWORD,
@@ -89,39 +133,18 @@ const TICKER = 'ETH';
     const clientAddress = (responseClient as AxiosResponse).data;
     console.log('Client address:', clientAddress);
 
-    const [errSendTokenToClient] = await to(axios.get(`${HOST}/send/token?address=${clientAddress}`));
+    const [errSendTokenToClient] = await to(axios.get(`${HOST}/send/token?address=${clientAddress}&value=2`));
     if (errSendTokenToClient) {
         throw new Error('Can not top up client contract');
     }
 
-    if (true) { // test 1
+    await test('1', clientAddress, 42);
+    await test('2', clientAddress, 100);
+    try {
+        await test('3', clientAddress, 1);
+        console.error('Test 3 not failed');
 
-        const newPrice = 42;
-        const [err1] = await to(axios.post(`${PRICE_PROVIDER_URL}${TICKER}`, {
-            value: newPrice,
-        }));
-        if (err1) {
-            console.log('Can not update price')
-        }
-
-        const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=${TICKER}`));
-        if (errPrice) {
-            throw errPrice;
-        }
-
-        const logs = (responsePrice as any).data.logs;
-        const requestId = logs[logs.length - 1].topics[3];
-
-        await sleep(10000); // TODO: use setInterval
-        const [err, price] = await to(axios.get(`${HOST}/result?client=${clientAddress}&requestId=${requestId}`));
-        if (err) {
-            throw err;
-        }
-
-        console.log('Expected price:', newPrice * 100);
-        console.log('Received price:', price?.data);
+    } catch (e) {
+        console.log(`Test 3 failed as expected`);
     }
-
-    // todo: check price
-    // todo: update price and re-check
 })();
