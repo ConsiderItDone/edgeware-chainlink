@@ -4,7 +4,7 @@ import to from 'await-to-js';
 const fs = require('fs');
 
 const TICKER = process.env.TICKER || 'ETH';
-const HOST = process.env.HOST || 'http://127.0.0.1:8080';
+const CONTRACT_HOST = process.env.CONTRACT_HOST || 'http://127.0.0.1:8080';
 const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
 const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://127.0.0.1/price';
 
@@ -27,7 +27,7 @@ async function setPrice(newPrice: number) {
 }
 
 async function getPrice(clientAddress: string): Promise<number> {
-    const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=${TICKER}`));
+    const [errPrice, responsePrice] = await to(axios.get(`${CONTRACT_HOST}/price?client=${clientAddress}&ticker=${TICKER}`));
     if (errPrice) {
         throw new Error('Can not call createRequest');
     }
@@ -45,7 +45,7 @@ async function getPrice(clientAddress: string): Promise<number> {
                 return;
             }
 
-            const [err, price] = await to(axios.get(`${HOST}/result?client=${clientAddress}&requestId=${requestId}`));
+            const [err, price] = await to(axios.get(`${CONTRACT_HOST}/result?client=${clientAddress}&requestId=${requestId}`));
             if (err) {
                 reject(err);
                 return;
@@ -105,11 +105,11 @@ describe('Preparation', () => {
     });
 
     it('top up node', async () => {
-        await axios.get(`${HOST}/send/eth?address=${mem.node}`)
+        await axios.get(`${CONTRACT_HOST}/send/eth?address=${mem.node}`)
     });
 
     it('get token address', async () => {
-        const response = await axios.get(`${HOST}`);
+        const response = await axios.get(`${CONTRACT_HOST}`);
         const tokenAddress = (response as AxiosResponse)?.data;
 
         if (!tokenAddress) {
@@ -120,7 +120,7 @@ describe('Preparation', () => {
     });
 
     it('deploy oracle contract', async () => {
-        const responseOracle= await axios.get(`${HOST}/deploy/oracle?node=${mem.node}`);
+        const responseOracle= await axios.get(`${CONTRACT_HOST}/deploy/oracle?node=${mem.node}`);
         const oracleAddress = (responseOracle as AxiosResponse)?.data;
 
         if (!oracleAddress) {
@@ -157,7 +157,7 @@ describe('Preparation', () => {
     });
 
     it('deploy client contract', async () => {
-        const responseClient = await axios.get(`${HOST}/deploy/client?oracle=${
+        const responseClient = await axios.get(`${CONTRACT_HOST}/deploy/client?oracle=${
             mem.oracleAddress
         }&token=${
             mem.tokenAddress
@@ -173,7 +173,7 @@ describe('Preparation', () => {
 
     it('top up client contract', async () => {
         const ETH = 2; // IMPORTANT FOR TESTS
-        await axios.get(`${HOST}/send/token?address=${mem.clientAddress}&value=${ETH}`)
+        await axios.get(`${CONTRACT_HOST}/send/token?address=${mem.clientAddress}&value=${ETH}`)
     });
 });
 

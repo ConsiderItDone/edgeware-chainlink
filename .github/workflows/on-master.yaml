@@ -1,0 +1,23 @@
+name: Integration tests
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+            node-version: 14.x
+      - name: Run services
+        run: docker-compose up -d
+      - name: Test
+        run: |
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' http://127.0.0.1:8080/)" != "200" ]; do echo "waiting for contract service..." && sleep 5; done && \
+          cd integration && npm run test

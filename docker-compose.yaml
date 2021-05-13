@@ -49,6 +49,23 @@ services:
       - password
       - apicredentials
 
+  price_mock:
+    build:
+      dockerfile: Dockerfile
+      context: price-mock
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  contracts:
+    build:
+      dockerfile: Dockerfile
+      context: contracts
+    environment:
+      - GETH_HOST=52.91.75.170
+    ports:
+      - "127.0.0.1:8080:8080"
+
+
 volumes:
   chainlink_db:
 
