@@ -95,4 +95,106 @@ app.get("/deploy/client", async function (req, res) {
   res.json(contractAddress);
 });
 
+app.get("/send/token", async function (req, res) {
+  const address = req.query.address;
+  const value = req.query.value || '1';
+
+  if (!web3.utils.isAddress(address)) {
+    res.status(500).send('Bad address format');
+    return;
+  }
+
+  const tokenAddress = token.networks[netid].address;
+  const tokenContract = new web3.eth.Contract(token.abi, tokenAddress);
+
+  const nonce = await web3.eth.getTransactionCount(from.address, 'pending');
+  const tx = await from.signTransaction({
+    to: tokenAddress,
+    nonce,
+    gas: 8000000,
+    data: tokenContract.methods.transfer(address, web3.utils.toWei(value, 'ether')).encodeABI(),
+  });
+
+  const receipt = await web3.eth.sendSignedTransaction(tx.rawTransaction);
+
+  res.json(receipt);
+});
+
+app.get("/send/eth", async function (req, res) {
+  const address = req.query.address;
+
+  if (!web3.utils.isAddress(address)) {
+    res.status(500).send('Bad address format');
+    return;
+  }
+
+  const nonce = await web3.eth.getTransactionCount(from.address, 'pending');
+  const tx = await from.signTransaction({
+    to: address,
+    nonce: nonce,
+    gas: 8000000,
+    value: web3.utils.toWei('1', 'ether'),
+  });
+
+  const receipt = await web3.eth.sendSignedTransaction(tx.rawTransaction);
+
+  res.json(receipt);
+});
+
+app.get("/price", async function (req, res) {
+  const clientAddress = req.query.client;
+  const ticker = req.query.ticker;
+
+  if (!web3.utils.isAddress(clientAddress)) {
+    res.status(500).send('Bad client address format');
+    return;
+  }
+
+  if (!ticker) {
+    res.status(500).send('Bad ticker format');
+    return;
+  }
+
+  const clientContract = (new web3.eth.Contract(client.abi, clientAddress));
+
+  const nonce = await web3.eth.getTransactionCount(from.address, 'pending');
+  const tx = await from.signTransaction({
+    to: clientAddress,
+    nonce,
+    gas: 8000000,
+    data: clientContract.methods.createRequest(ticker).encodeABI(),
+  });
+
+  try {
+    const receipt = await web3.eth.sendSignedTransaction(tx.rawTransaction);
+    res.json(receipt);
+    return;
+  } catch (err) {
+    res.status(500).send(err.message);
+    return;
+  }
+
+  res.status(500).send('Ooops');
+});
+
+app.get("/result", async function (req, res) {
+  const requestId = req.query.requestId;
+  const clientAddress = req.query.client;
+
+  if (!web3.utils.isAddress(clientAddress)) {
+    res.status(500).send('Bad client address format');
+    return;
+  }
+
+  if (!requestId) {
+    res.status(500).send('Bad requestId format');
+    return;
+  }
+
+  const clientContract =new web3.eth.Contract(client.abi, clientAddress);
+
+  const result = await clientContract.methods.results(requestId).call();
+  res.json(result);
+});
+
 app.listen(sport, () => console.log(`server is listening on ${sport}`));

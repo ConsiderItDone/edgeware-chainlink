@@ -55,7 +55,7 @@ abstract contract Ownable {
 }
 
 contract Client is Ownable, ChainlinkClient {
-    uint256 constant public ORACLE_FEE = 0.1 * 10 ** 18; // default price for each request
+    uint256 constant public ORACLE_FEE = 10 ** 18; // default price for each request
     mapping (bytes32 => uint256) public results; // _requestId => obtained data
     bytes32 public jobId; // job id of the oracle
     string public urlPart; // part of API url (without the last part) to make oracle calls
