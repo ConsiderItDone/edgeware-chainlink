@@ -1,0 +1,22 @@
+{
+  "name": "edgeware-price-mock",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ConsiderItDone/edgeware-price-mock.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ConsiderItDone/edgeware-price-mock/issues"
+  },
+  "homepage": "https://github.com/ConsiderItDone/edgeware-price-mock#readme",
+  "dependencies": {
+    "body-parse": "^0.1.0",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1"
+  }
+}
