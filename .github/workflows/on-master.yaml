@@ -20,4 +20,7 @@ jobs:
       - name: Test
         run: |
           while [ "$(curl -s -o /dev/null -w ''%{http_code}'' http://127.0.0.1:8080/)" != "200" ]; do echo "waiting for contract service..." && sleep 5; done && \
-          cd integration && npm run test
+          cd integration && npm i && \
+          CONTRACT_HOST=http://localhost:8080 CHAINLINK_URL=http://localhost:6688 \
+          CHAINLINK_EMAIL=notreal@fakeemail.ch CHAINLINK_PASSWORD=twochains \
+          npm run test

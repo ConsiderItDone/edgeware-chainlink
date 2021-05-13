@@ -10,7 +10,7 @@
   ],
   "tasks": [
     {
-      "type": "httpget"
+      "type": "HTTPGetWithUnrestrictedNetworkAccess"
     },
     {
       "type": "jsonparse"
