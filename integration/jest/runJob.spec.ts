@@ -1,4 +1,5 @@
 import axios, {AxiosResponse} from 'axios';
+import { expect } from '@jest/globals';
 import to from 'await-to-js';
 const fs = require('fs');
 
@@ -7,7 +8,11 @@ const HOST = process.env.HOST || 'http://127.0.0.1:8080';
 const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
 const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://192.168.1.9:3000/priceETH';
 
-async function test(name: string, clientAddress: string, newPrice: number) {
+const mem = {
+    clientAddress: ''
+};
+
+async function setPrice(newPrice: number) {
     const [err] = await to(axios.post(`${PRICE_PROVIDER_URL}`, { // TICKER
         value: newPrice / 100,
     }));
@@ -15,9 +20,13 @@ async function test(name: string, clientAddress: string, newPrice: number) {
         throw new Error('Can not update price');
     }
 
+    console.log('Price was updated:', newPrice);
+}
+
+async function getPrice(clientAddress: string): Promise<number> {
     const [errPrice, responsePrice] = await to(axios.get(`${HOST}/price?client=${clientAddress}&ticker=${TICKER}`));
     if (errPrice) {
-        throw errPrice;
+        throw new Error('Can not call createRequest');
     }
 
     const logs = (responsePrice as any).data.logs;
@@ -46,20 +55,13 @@ async function test(name: string, clientAddress: string, newPrice: number) {
         }, 2000);
     });
 
-    console.log('Expected price:', newPrice);
-    console.log('Received price:', price);
-
-    if (Number(newPrice) !== Number(price)) {
-        console.error(`Test ${name} failed`);
-    } else {
-        console.log(`Test ${name} pass`);
-    }
+    return Number(price);
 }
 
-(async () : Promise<any> => {
+async function login(email: string, password: string): Promise<string> {
     const login = await axios.post(`${CHAINLINK_HOST}/sessions`, {
-        email: process.env.CHAINLINK_EMAIL,
-        password: process.env.CHAINLINK_PASSWORD,
+        email,
+        password,
     }, {
         headers:  {
             "accept": "application/json",
@@ -69,9 +71,18 @@ async function test(name: string, clientAddress: string, newPrice: number) {
     });
     const cookies = login.headers['set-cookie'];
 
+    return cookies.join(';');
+}
+
+beforeAll(async () => {
+    const email = process.env.CHAINLINK_EMAIL as string;
+    const password = process.env.CHAINLINK_PASSWORD as string;
+
+    const cookie = await login(email, password);
+
     const keys = await axios.get(`${CHAINLINK_HOST}/v2/keys/eth`, {
         headers: {
-            cookie: cookies.join(';'),
+            cookie,
         }
     })
     const node = keys?.data?.data[0].id;
@@ -95,7 +106,7 @@ async function test(name: string, clientAddress: string, newPrice: number) {
 
     const [errOracle, responseOracle] = await to(axios.get(`${HOST}/deploy/oracle?node=${node}`));
     if (errOracle) {
-        throw new Error(errOracle?.message);
+        throw new Error('Can not deploy oracle contract');
     }
 
     const oracleAddress = (responseOracle as AxiosResponse).data;
@@ -112,7 +123,7 @@ async function test(name: string, clientAddress: string, newPrice: number) {
         jobPayload,
         {
             headers: {
-                cookie: cookies.join(';'),
+                cookie,
             }
         });
 
@@ -127,24 +138,43 @@ async function test(name: string, clientAddress: string, newPrice: number) {
 
     const [errClient, responseClient] = await to(axios.get(`${HOST}/deploy/client?oracle=${oracleAddress}&token=${tokenAddress}&jobid=${jobId}&urlpart=${PRICE_PROVIDER_URL}&path=value&times=100`));
     if (errClient) {
-        throw new Error(errClient?.message);
+        throw new Error('Can not deploy client contract');
     }
 
     const clientAddress = (responseClient as AxiosResponse).data;
     console.log('Client address:', clientAddress);
+    mem.clientAddress = clientAddress;
 
     const [errSendTokenToClient] = await to(axios.get(`${HOST}/send/token?address=${clientAddress}&value=2`));
     if (errSendTokenToClient) {
         throw new Error('Can not top up client contract');
     }
+});
 
-    await test('1', clientAddress, 42);
-    await test('2', clientAddress, 100);
-    try {
-        await test('3', clientAddress, 1);
-        console.error('Test 3 not failed');
+describe('Get price', () => {
+    it('first time (price: 42)', async () => {
+        const newPrice = 42;
+        await setPrice(newPrice);
+        const price = await getPrice(mem.clientAddress);
 
-    } catch (e) {
-        console.log(`Test 3 failed as expected`);
-    }
-})();
+        expect(price).toBe(newPrice);
+    });
+
+    it('second time (price: 500)', async () => {
+        const newPrice = 500;
+        await setPrice(newPrice);
+        const price = await getPrice(mem.clientAddress);
+
+        expect(price).toBe(newPrice);
+    });
+
+    it("expected fail (no tokens)", async () => {
+        try {
+            await getPrice(mem.clientAddress);
+
+            fail('expected exception not thrown');
+        } catch (e) {
+            expect(e.message).toBe('Can not call createRequest');
+        }
+    });
+})

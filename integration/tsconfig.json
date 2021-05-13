@@ -4,6 +4,7 @@
     "noEmit": true,
     "types": [
       "cypress",
+      "jest",
       "@types/node"
     ] /* Type declaration files to be included in compilation. */
   }
