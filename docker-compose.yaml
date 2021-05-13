@@ -23,7 +23,7 @@ services:
       - ./tmp/clroot/:/clroot/
     environment:
       - ROOT=/clroot
-      - DATABASE_URL=postgresql://chainlink:to584b1b2jflqorv@db:5432/test2?sslmode=disable
+      - DATABASE_URL=postgresql://chainlink:to584b1b2jflqorv@db:5432/chainlink?sslmode=disable
     secrets:
       - '0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6'
 
@@ -42,7 +42,7 @@ services:
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
       - CHAINLINK_DEV=true
       - CHAINLINK_TLS_PORT=0
-      - DATABASE_URL=postgresql://chainlink:to584b1b2jflqorv@db:5432/test2?sslmode=disable
+      - DATABASE_URL=postgresql://chainlink:to584b1b2jflqorv@db:5432/chainlink?sslmode=disable
     depends_on:
       - chainlink_key_import
     networks:
