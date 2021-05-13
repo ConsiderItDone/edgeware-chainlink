@@ -6,21 +6,24 @@ const fs = require('fs');
 const TICKER = process.env.TICKER || 'ETH';
 const HOST = process.env.HOST || 'http://127.0.0.1:8080';
 const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
-const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://192.168.1.9:3000/priceETH';
+const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://127.0.0.1/price';
 
 const mem = {
-    clientAddress: ''
+    clientAddress: '',
+    tokenAddress: '',
+    oracleAddress: '',
+    cookie: '',
+    node: '',
+    jobId: '',
 };
 
 async function setPrice(newPrice: number) {
-    const [err] = await to(axios.post(`${PRICE_PROVIDER_URL}`, { // TICKER
+    const [err] = await to(axios.post(`${PRICE_PROVIDER_URL}${TICKER}`, {
         value: newPrice / 100,
     }));
     if (err) {
         throw new Error('Can not update price');
     }
-
-    console.log('Price was updated:', newPrice);
 }
 
 async function getPrice(clientAddress: string): Promise<number> {
@@ -74,81 +77,104 @@ async function login(email: string, password: string): Promise<string> {
     return cookies.join(';');
 }
 
-beforeAll(async () => {
-    const email = process.env.CHAINLINK_EMAIL as string;
-    const password = process.env.CHAINLINK_PASSWORD as string;
+describe('Preparation', () => {
+    it('login', async () => {
+        const email = process.env.CHAINLINK_EMAIL as string;
+        const password = process.env.CHAINLINK_PASSWORD as string;
 
-    const cookie = await login(email, password);
-
-    const keys = await axios.get(`${CHAINLINK_HOST}/v2/keys/eth`, {
-        headers: {
-            cookie,
+        const cookie = await login(email, password);
+        if (!cookie) {
+            fail('expected cookie not received');
         }
-    })
-    const node = keys?.data?.data[0].id;
-    if (!node) {
-        throw new Error('Can not receive keys');
-    }
-    console.log('Node:', node);
 
-    const [errSendEthToNode] = await to(axios.get(`${HOST}/send/eth?address=${node}`));
-    if (errSendEthToNode) {
-        throw new Error('Can not top up node');
-    }
+        mem.cookie = cookie;
+    });
 
-    const [errToken, responseToken] = await to(axios.get(`${HOST}`));
-    if (errToken) {
-        throw new Error('edgeware-chainlink-contract not allowed');
-    }
-
-    const tokenAddress = (responseToken as AxiosResponse).data;
-    console.log('Token:', tokenAddress);
-
-    const [errOracle, responseOracle] = await to(axios.get(`${HOST}/deploy/oracle?node=${node}`));
-    if (errOracle) {
-        throw new Error('Can not deploy oracle contract');
-    }
-
-    const oracleAddress = (responseOracle as AxiosResponse).data;
-    console.log('Oracle:', oracleAddress);
-
-    const rawJobPayload = fs.readFileSync('./cypress/fixtures/job.json');
-    const jobPayload = JSON.parse(rawJobPayload);
-
-    // patch oracle address and price provider
-    jobPayload.initiators[0].params.address = oracleAddress;
-    jobPayload.tasks[0].params.get = PRICE_PROVIDER_URL;
-
-    const newJob = await axios.post(`${CHAINLINK_HOST}/v2/specs`,
-        jobPayload,
-        {
+    it('get node address', async () => {
+        const keys = await axios.get(`${CHAINLINK_HOST}/v2/keys/eth`, {
             headers: {
-                cookie,
+                cookie: mem.cookie,
             }
-        });
+        })
+        const node = keys?.data?.data[0].id;
+        if (!node) {
+            fail('node address is not received');
+        }
 
-    const rawJobId = newJob?.data?.data?.id;
+        mem.node = node;
+    });
 
-    if (!rawJobId) {
-        throw new Error('Something wrong with new job');
-    }
+    it('top up node', async () => {
+        await axios.get(`${HOST}/send/eth?address=${mem.node}`)
+    });
 
-    const jobId = '0x' + Buffer.from(rawJobId, 'utf8').toString('hex');
-    console.log('Job id:', rawJobId, ' -> ', jobId);
+    it('get token address', async () => {
+        const response = await axios.get(`${HOST}`);
+        const tokenAddress = (response as AxiosResponse)?.data;
 
-    const [errClient, responseClient] = await to(axios.get(`${HOST}/deploy/client?oracle=${oracleAddress}&token=${tokenAddress}&jobid=${jobId}&urlpart=${PRICE_PROVIDER_URL}&path=value&times=100`));
-    if (errClient) {
-        throw new Error('Can not deploy client contract');
-    }
+        if (!tokenAddress) {
+            fail('token address is not received');
+        }
 
-    const clientAddress = (responseClient as AxiosResponse).data;
-    console.log('Client address:', clientAddress);
-    mem.clientAddress = clientAddress;
+        mem.tokenAddress = tokenAddress;
+    });
 
-    const [errSendTokenToClient] = await to(axios.get(`${HOST}/send/token?address=${clientAddress}&value=2`));
-    if (errSendTokenToClient) {
-        throw new Error('Can not top up client contract');
-    }
+    it('deploy oracle contract', async () => {
+        const responseOracle= await axios.get(`${HOST}/deploy/oracle?node=${mem.node}`);
+        const oracleAddress = (responseOracle as AxiosResponse)?.data;
+
+        if (!oracleAddress) {
+            fail('oracle contract is not deployed');
+        }
+
+        mem.oracleAddress = oracleAddress;
+    });
+
+    it('create job', async () => {
+        const rawJobPayload = fs.readFileSync('./job.json');
+        const jobPayload = JSON.parse(rawJobPayload);
+
+        // patch oracle address and price provider
+        jobPayload.initiators[0].params.address = mem.oracleAddress;
+
+        const newJob = await axios.post(`${CHAINLINK_HOST}/v2/specs`,
+            jobPayload,
+            {
+                headers: {
+                    cookie: mem.cookie,
+                }
+            });
+
+        const rawJobId = newJob?.data?.data?.id;
+
+        if (!rawJobId) {
+            fail('job is not deployed');
+        }
+
+        const jobId = '0x' + Buffer.from(rawJobId, 'utf8').toString('hex');
+
+        mem.jobId = jobId;
+    });
+
+    it('deploy client contract', async () => {
+        const responseClient = await axios.get(`${HOST}/deploy/client?oracle=${
+            mem.oracleAddress
+        }&token=${
+            mem.tokenAddress
+        }&jobid=${mem.jobId}&urlpart=${PRICE_PROVIDER_URL}&path=value&times=100`);
+
+        const clientAddress = (responseClient as AxiosResponse)?.data;
+        if (!clientAddress) {
+            fail('client contract is not deployed');
+        }
+
+        mem.clientAddress = clientAddress;
+    });
+
+    it('top up client contract', async () => {
+        const ETH = 2; // IMPORTANT FOR TESTS
+        await axios.get(`${HOST}/send/token?address=${mem.clientAddress}&value=${ETH}`)
+    });
 });
 
 describe('Get price', () => {
