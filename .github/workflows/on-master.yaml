@@ -23,4 +23,5 @@ jobs:
           cd integration && npm i && \
           CONTRACT_HOST=http://localhost:8080 CHAINLINK_URL=http://localhost:6688 \
           CHAINLINK_EMAIL=notreal@fakeemail.ch CHAINLINK_PASSWORD=twochains \
+          PRICE_PROVIDER_URL=http://172.100.1.100:3000/price \
           npm run test

@@ -16,7 +16,7 @@
 docker-compose up -d
 # wait 1 min
 sleep 60
-CONTRACT_HOST=http://localhost:8080 CHAINLINK_URL=http://localhost:6688 PRICE_PROVIDER_URL=http://192.168.1.9:3000/price \
+CONTRACT_HOST=http://localhost:8080 CHAINLINK_URL=http://localhost:6688 PRICE_PROVIDER_URL=http://172.100.1.100:3000/price \
 CHAINLINK_EMAIL=notreal@fakeemail.ch CHAINLINK_PASSWORD=twochains \
 npm run test
 ```

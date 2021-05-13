@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "license": "MIT",
   "scripts": {
-    "test": "npx jest"
+    "test": "npx jest --detectOpenHandles --runInBand"
   },
   "devDependencies": {
     "@types/jest": "^26.0.23",

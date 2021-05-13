@@ -10,6 +10,8 @@ services:
       POSTGRES_PASSWORD: "to584b1b2jflqorv"
     volumes:
       - chainlink_db:/var/lib/postgresql/data
+    networks:
+      edgeware:
     ports:
       - "0.0.0.0:5439:5432"
 
@@ -43,6 +45,8 @@ services:
       - DATABASE_URL=postgresql://chainlink:to584b1b2jflqorv@db:5432/test2?sslmode=disable
     depends_on:
       - chainlink_key_import
+    networks:
+      edgeware:
     ports:
       - 6688:6688
     secrets:
@@ -53,6 +57,9 @@ services:
     build:
       dockerfile: Dockerfile
       context: price-mock
+    networks:
+      edgeware:
+        ipv4_address: 172.100.1.100
     ports:
       - "0.0.0.0:3000:3000"
 
@@ -62,9 +69,18 @@ services:
       context: contracts
     environment:
       - GETH_HOST=52.91.75.170
+    networks:
+      edgeware:
     ports:
       - "127.0.0.1:8080:8080"
 
+networks:
+  edgeware:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.100.1.0/24
 
 volumes:
   chainlink_db:

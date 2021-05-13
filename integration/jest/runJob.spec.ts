@@ -40,7 +40,7 @@ async function getPrice(clientAddress: string): Promise<number> {
         const intervalId = setInterval(async () => {
             counter++;
 
-            if (counter > 5) {
+            if (counter > 15) {
                 reject(new Error('No results'));
                 return;
             }
@@ -172,8 +172,8 @@ describe('Preparation', () => {
     });
 
     it('top up client contract', async () => {
-        const ETH = 2; // IMPORTANT FOR TESTS
-        await axios.get(`${CONTRACT_HOST}/send/token?address=${mem.clientAddress}&value=${ETH}`)
+        const linkTokenAmount = 2; // IMPORTANT FOR TESTS
+        await axios.get(`${CONTRACT_HOST}/send/token?address=${mem.clientAddress}&value=${linkTokenAmount}`)
     });
 });
 
