@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -50,9 +52,19 @@ func logger(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func kill() {
+	for job := range me {
+		me[job] <- true
+	}
+	time.Sleep(2 * time.Second)
+}
+
 func run(params *Params) {
 	mu.Lock()
 	defer mu.Unlock()
+
+	kill()
+
 	me[params.Name] = make(chan bool, 1)
 	prms := params
 
@@ -63,12 +75,19 @@ func run(params *Params) {
 		app.Env = append(app.Env, fmt.Sprintf("EI_CI_SECRET=%s", prms.OutgoingSecret))
 		app.Env = append(app.Env, fmt.Sprintf("EI_IC_ACCESSKEY=%s", prms.IncomingAccessKey))
 		app.Env = append(app.Env, fmt.Sprintf("EI_IC_SECRET=%s", prms.IncomingSecret))
-		app.Stdout = os.Stdout
-		app.Stderr = os.Stderr
 
 		log.Printf("[%s] ENV: ", prms.Name)
 		for i := range app.Env {
 			log.Printf("  [%s] %s", prms.Name, app.Env[i])
+		}
+
+		stderr, err := app.StderrPipe()
+		if err != nil {
+			log.Panicf("[%s]: %s", prms.Name, err)
+		}
+		stdout, err := app.StdoutPipe()
+		if err != nil {
+			log.Panicf("[%s]: %s", prms.Name, err)
 		}
 
 		if err := app.Start(); err != nil {
@@ -76,10 +95,16 @@ func run(params *Params) {
 		}
 		defer app.Process.Kill()
 
+		scanner := bufio.NewScanner(io.MultiReader(stderr, stdout))
 		for {
 			select {
 			case <-stop:
+				delete(me, prms.Name)
 				return
+			default:
+				if scanner.Scan() {
+					log.Printf("[%s]: %s", prms.Name, scanner.Text())
+				}
 			}
 		}
 	}(me[prms.Name])
