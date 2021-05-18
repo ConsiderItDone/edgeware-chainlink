@@ -5,6 +5,7 @@ const express = require('express')
 const token = require('./build/contracts/LinkToken.json');
 const oracle = require("./build/contracts/Oracle.json");
 const client = require("./build/contracts/Client.json");
+const events = require("./build/contracts/EventFactory.json");
 
 const netid = process.env.NETID || 2021;
 const sport = process.env.PORT || '8080';
@@ -195,6 +196,33 @@ app.get("/result", async function (req, res) {
 
   const result = await clientContract.methods.results(requestId).call();
   res.json(result);
+});
+
+app.get("/event",  async function (req, res) {
+  res.json({
+    contract: events.networks[netid].address,
+    sender:   from.address,
+    topics:   [
+      "0x50d7c806d0f7913f321946784dee176a42aa55b5dd83371fc57dcedf659085e0",
+      "0x00000000000000000000000019e7e376e7c213b7e7e7e46cc70a5dd086daff2a"
+    ]
+  })
+});
+
+app.get("/event/fire", async function (req, res) {
+  const addr = events.networks[netid].address;
+  const evts = new web3.eth.Contract(events.abi, addr);
+  
+  const nonce = await web3.eth.getTransactionCount(from.address, 'pending');
+  const tx = await from.signTransaction({
+    to: addr,
+    nonce,
+    gas: 8000000,
+    data: evts.methods.fire().encodeABI(),
+  });
+
+  const receipt = await web3.eth.sendSignedTransaction(tx.rawTransaction);
+  res.json(receipt);
 });
 
 app.listen(sport, () => console.log(`server is listening on ${sport}`));

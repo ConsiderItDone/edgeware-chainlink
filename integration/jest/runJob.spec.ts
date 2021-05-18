@@ -8,6 +8,11 @@ const CONTRACT_HOST = process.env.CONTRACT_HOST || 'http://127.0.0.1:8080';
 const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
 const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://127.0.0.1/price';
 
+const EINITIATOR_URL = process.env.EINITIATOR_URL || 'http://127.0.0.1:8081';
+const ETH_URL = process.env.ETH_URL || 'ws://52.91.75.170:9944';
+const EI_HOST = process.env.EI_HOST || '172.100.1.101';
+const EI_PORT = process.env.EI_HOST || '8082';
+
 const mem = {
     clientAddress: '',
     tokenAddress: '',
@@ -174,6 +179,19 @@ describe('Preparation', () => {
     it('top up client contract', async () => {
         const linkTokenAmount = 2; // IMPORTANT FOR TESTS
         await axios.get(`${CONTRACT_HOST}/send/token?address=${mem.clientAddress}&value=${linkTokenAmount}`)
+    });
+
+    it('create external initiator', async () => {
+        const payload  = {name: "ei"+ Math.random().toString(36).substring(7),url:`http://${EI_HOST}:${EI_PORT}/jobs`}
+        const eiparams = await axios.post(`${CHAINLINK_HOST}/v2/external_initiators`, payload, {
+            headers: {
+                cookie: mem.cookie,
+            }
+        });
+        const data = eiparams?.data?.data?.attributes
+        data["ethereum"] = ETH_URL;
+        const result = await axios.post(EINITIATOR_URL, data);
+        expect(result?.data).toBe('ok');
     });
 });
 
