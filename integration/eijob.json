@@ -1,0 +1,48 @@
+{
+  "name": "update ticker",
+  "initiators": [
+    {
+      "type": "external",
+      "params": {
+        "name": "eip0jb8i",
+        "body": {
+          "endpoint": "ethereum",
+          "addresses": [
+            "0xB600Dca5C8de4c18c671FBA67794A4C21211922B"
+          ],
+          "topics": [
+            "0x50d7c806d0f7913f321946784dee176a42aa55b5dd83371fc57dcedf659085e0"
+          ]
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "httpgetwithunrestrictednetworkaccess",
+      "params": {
+        "get": "http://172.100.1.100:3000/priceeth"
+      }
+    },
+    {
+      "type": "jsonparse",
+      "params": {
+        "path": [
+          "value"
+        ]
+      }
+    },
+    {
+      "type": "multiply"
+    },
+    {
+      "type": "ethuint256"
+    },
+    {
+      "type": "ethtx",
+      "params": {
+        "functionSelector": "set(uint256)"
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import axios, {AxiosResponse} from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { expect } from '@jest/globals';
 import to from 'await-to-js';
 const fs = require('fs');
@@ -8,6 +8,11 @@ const CONTRACT_HOST = process.env.CONTRACT_HOST || 'http://127.0.0.1:8080';
 const CHAINLINK_HOST = process.env.CHAINLINK_URL || 'http://52.91.75.170:6688';
 const PRICE_PROVIDER_URL = process.env.PRICE_PROVIDER_URL || 'http://127.0.0.1/price';
 
+const EINITIATOR_URL = process.env.EINITIATOR_URL || 'http://127.0.0.1:8081';
+const ETH_URL = process.env.ETH_URL || 'ws://52.91.75.170:9944';
+const EI_HOST = process.env.EI_HOST || '172.100.1.101';
+const EI_PORT = process.env.EI_HOST || '8082';
+
 const mem = {
     clientAddress: '',
     tokenAddress: '',
@@ -15,7 +20,28 @@ const mem = {
     cookie: '',
     node: '',
     jobId: '',
+    einame: '',
 };
+
+async function sleep(ms: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+async function awaitei(n: number = 100, host: string = EI_HOST, port: string = EI_PORT) {
+    let ready = false;
+    for (let i = 0; i < n && !ready; i++) {
+        try {
+            const resp = await axios.get(`http://${host}:${port}/health`);
+            ready = resp?.data?.chainlink === true;
+        } catch (e) {
+        }
+        if (!ready) {
+            await sleep(1000);
+        }
+    }
+}
 
 async function setPrice(newPrice: number) {
     const [err] = await to(axios.post(`${PRICE_PROVIDER_URL}${TICKER}`, {
@@ -158,10 +184,10 @@ describe('Preparation', () => {
 
     it('deploy client contract', async () => {
         const responseClient = await axios.get(`${CONTRACT_HOST}/deploy/client?oracle=${
-            mem.oracleAddress
-        }&token=${
-            mem.tokenAddress
-        }&jobid=${mem.jobId}&urlpart=${PRICE_PROVIDER_URL}&path=value&times=100`);
+                mem.oracleAddress
+            }&token=${
+                mem.tokenAddress
+            }&jobid=${mem.jobId}&urlpart=${PRICE_PROVIDER_URL}&path=value&times=100`);
 
         const clientAddress = (responseClient as AxiosResponse)?.data;
         if (!clientAddress) {
@@ -174,6 +200,41 @@ describe('Preparation', () => {
     it('top up client contract', async () => {
         const linkTokenAmount = 2; // IMPORTANT FOR TESTS
         await axios.get(`${CONTRACT_HOST}/send/token?address=${mem.clientAddress}&value=${linkTokenAmount}`)
+    });
+
+    it('external initiator create', async () => {
+        mem.einame = "ei" + Math.random().toString(36).substring(7);
+        const payload = { name: mem.einame, url: `http://${EI_HOST}:${EI_PORT}/jobs` };
+        const eiparams = await axios.post(`${CHAINLINK_HOST}/v2/external_initiators`, payload, {
+            headers: {
+                cookie: mem.cookie,
+            }
+        });
+        const data = eiparams?.data?.data?.attributes
+        data["ethereum"] = ETH_URL;
+        const result = await axios.post(EINITIATOR_URL, data);
+        expect(result?.data).toBe('ok');
+    });
+
+    it('external initiator create job', async () => {
+        await awaitei(100, '127.0.0.1', '8082');
+        const eiparams = await axios.get(`${CONTRACT_HOST}/ei`);
+
+        const rawJobPayload = fs.readFileSync('./eijob.json');
+        const jobPayload = JSON.parse(rawJobPayload);
+        jobPayload.initiators[0].params.body.addresses = [eiparams?.data?.contract];
+        jobPayload.initiators[0].params.name = mem.einame;
+
+        const newJob = await axios.post(`${CHAINLINK_HOST}/v2/specs`, jobPayload, {
+            headers: {
+                cookie: mem.cookie,
+            }
+        });
+
+        const rawJobId = newJob?.data?.data?.id;
+        if (!rawJobId) {
+            fail('job is not deployed');
+        }
     });
 });
 
@@ -202,5 +263,20 @@ describe('Get price', () => {
         } catch (e) {
             expect(e.message).toBe('Can not call createRequest');
         }
+    });
+
+    it("ei update price", async () => {
+        const price = 50000;
+        await setPrice(price);
+        await to(axios.get(`${CONTRACT_HOST}/ei/fire`));
+
+        let newPrice:number = 0;
+        for (let i = 0; i < 100 && newPrice === 0; i++) {
+          const data = await axios.get(`${CONTRACT_HOST}/ei/ticker`);
+          newPrice = +data?.data
+          await sleep(1000);
+        }
+
+        expect(newPrice * 100).toBe(price)
     });
 })

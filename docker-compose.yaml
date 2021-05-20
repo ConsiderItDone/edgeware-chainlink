@@ -15,6 +15,18 @@ services:
     ports:
       - "0.0.0.0:5439:5432"
 
+  db2:
+    restart: unless-stopped
+    image: postgres:13.2-alpine
+    environment:
+      POSTGRES_USER: "einitiator"
+      POSTGRES_DB: "einitiator"
+      POSTGRES_PASSWORD: "to584b1b2jflqorv"
+    networks:
+      edgeware:
+    ports:
+      - "0.0.0.0:5440:5432"
+
   # imports the 0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6 key into the CL db
   chainlink_key_import:
     image: smartcontract/chainlink:0.10.5
@@ -43,6 +55,8 @@ services:
       - CHAINLINK_DEV=true
       - CHAINLINK_TLS_PORT=0
       - DATABASE_URL=postgresql://chainlink:to584b1b2jflqorv@db:5432/chainlink?sslmode=disable
+      - FEATURE_EXTERNAL_INITIATORS=true
+      - ALLOW_ORIGINS=*
     depends_on:
       - chainlink_key_import
     networks:
@@ -52,6 +66,25 @@ services:
     secrets:
       - password
       - apicredentials
+
+  einitiator:
+    build:
+      dockerfile: Dockerfile
+      context: einitiator
+    depends_on:
+      - chainlink
+      - db2
+    environment:
+      - EINITIATOR_PORT=:8081
+      - EI_PORT=8082
+      - EI_DATABASEURL=postgresql://einitiator:to584b1b2jflqorv@db2:5432/einitiator?sslmode=disable
+      - EI_CHAINLINKURL=http://chainlink:6688
+    networks:
+      edgeware:
+        ipv4_address: 172.100.1.101
+    ports:
+      - "0.0.0.0:8081:8081"
+      - "0.0.0.0:8082:8082"
 
   price_mock:
     build:
